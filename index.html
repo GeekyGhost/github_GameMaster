@@ -47,7 +47,8 @@
             border-radius: 3px;
         }
         #dice-result {
-            display: none;
+            margin-top: 10px;
+            font-weight: bold;
         }
     </style>
 </head>
@@ -61,11 +62,14 @@
 
     <script>
         // Game state
-        let playerHealth = 100;
-        let playerGold = 0;
-        let currentScene = 'start';
-        let playerStrength = 10;
-        let playerDexterity = 10;
+        const gameState = {
+            playerHealth: 100,
+            playerGold: 0,
+            currentScene: 'start',
+            playerStrength: 10,
+            playerDexterity: 10,
+            inventory: []
+        };
 
         // Dice rolling function
         function rollDice(numberOfDice, diceSides) {
@@ -97,7 +101,10 @@
                 choices: [
                     { text: "Enter the cave", nextScene: "cave" }
                 ],
-                effect: () => { playerHealth += 20; }
+                effect: () => { 
+                    gameState.playerHealth = Math.min(gameState.playerHealth + 20, 100);
+                    gameState.inventory.push("Rusty Sword", "Healing Potion");
+                }
             },
             glowingTunnel: {
                 text: "You follow the glowing tunnel and find a treasure chest! It seems to be locked.",
@@ -114,21 +121,22 @@
                 ]
             },
             lockPickResult: {
-                text: "You attempt to pick the lock. You rolled: ",
+                text: "You attempt to pick the lock.",
                 choices: [
                     { text: "Continue", nextScene: "openChest" }
                 ],
                 effect: () => {
                     const roll = rollDice(1, 20);
-                    const total = roll + Math.floor((playerDexterity - 10) / 2);
-                    scenes.lockPickResult.text += `${roll}. Adding your Dexterity modifier, your total is ${total}. `;
+                    const total = roll + Math.floor((gameState.playerDexterity - 10) / 2);
+                    const result = `You rolled: ${roll}. Adding your Dexterity modifier, your total is ${total}. `;
                     if (total >= 15) {
-                        scenes.lockPickResult.text += `Success! The lock clicks open.`;
+                        scenes.lockPickResult.text = result + "Success! The lock clicks open.";
                         scenes.lockPickResult.choices[0].nextScene = "openChest";
                     } else {
-                        scenes.lockPickResult.text += `Unfortunately, you failed to pick the lock.`;
+                        scenes.lockPickResult.text = result + "Unfortunately, you failed to pick the lock.";
                         scenes.lockPickResult.choices[0].nextScene = "failedLockPick";
                     }
+                    showDiceResult(result);
                 }
             },
             failedLockPick: {
@@ -145,21 +153,22 @@
                 ]
             },
             forceChestResult: {
-                text: "You attempt to force the chest open. You rolled: ",
+                text: "You attempt to force the chest open.",
                 choices: [
                     { text: "Continue", nextScene: "openChest" }
                 ],
                 effect: () => {
                     const roll = rollDice(1, 20);
-                    const total = roll + Math.floor((playerStrength - 10) / 2);
-                    scenes.forceChestResult.text += `${roll}. Adding your Strength modifier, your total is ${total}. `;
+                    const total = roll + Math.floor((gameState.playerStrength - 10) / 2);
+                    const result = `You rolled: ${roll}. Adding your Strength modifier, your total is ${total}. `;
                     if (total >= 15) {
-                        scenes.forceChestResult.text += `Success! The chest bursts open.`;
+                        scenes.forceChestResult.text = result + "Success! The chest bursts open.";
                         scenes.forceChestResult.choices[0].nextScene = "openChest";
                     } else {
-                        scenes.forceChestResult.text += `The chest remains stubbornly closed.`;
+                        scenes.forceChestResult.text = result + "The chest remains stubbornly closed.";
                         scenes.forceChestResult.choices[0].nextScene = "failedForceChest";
                     }
+                    showDiceResult(result);
                 }
             },
             failedForceChest: {
@@ -173,7 +182,7 @@
                 choices: [
                     { text: "Continue exploring", nextScene: "monster" }
                 ],
-                effect: () => { playerGold += 50; }
+                effect: () => { gameState.playerGold += 50; }
             },
             darkTunnel: {
                 text: "In the darkness, you stumble and hurt yourself. Roll a d6 for damage.",
@@ -182,14 +191,17 @@
                 ]
             },
             darkTunnelResult: {
-                text: "In the darkness, you stumble and hurt yourself. You rolled: ",
+                text: "In the darkness, you stumble and hurt yourself.",
                 choices: [
                     { text: "Continue", nextScene: "monster" }
                 ],
                 effect: () => {
                     const damage = rollDice(1, 6);
-                    playerHealth -= damage;
-                    scenes.darkTunnelResult.text += `${damage}. You took ${damage} damage.`;
+                    gameState.playerHealth = Math.max(gameState.playerHealth - damage, 0);
+                    const result = `You rolled: ${damage}. You took ${damage} damage.`;
+                    scenes.darkTunnelResult.text += ` ${result}`;
+                    showDiceResult(result);
+                    checkGameOver();
                 }
             },
             monster: {
@@ -206,21 +218,22 @@
                 ]
             },
             fightGoblinResult: {
-                text: "You engage the goblin in combat. You rolled: ",
+                text: "You engage the goblin in combat.",
                 choices: [
                     { text: "Continue", nextScene: "defeatGoblin" }
                 ],
                 effect: () => {
                     const roll = rollDice(1, 20);
-                    const total = roll + Math.floor((playerStrength - 10) / 2);
-                    scenes.fightGoblinResult.text += `${roll}. Adding your Strength modifier, your total is ${total}. `;
+                    const total = roll + Math.floor((gameState.playerStrength - 10) / 2);
+                    const result = `You rolled: ${roll}. Adding your Strength modifier, your total is ${total}. `;
                     if (total >= 12) {
-                        scenes.fightGoblinResult.text += `You hit the goblin!`;
+                        scenes.fightGoblinResult.text = result + "You hit the goblin!";
                         scenes.fightGoblinResult.choices[0].nextScene = "defeatGoblin";
                     } else {
-                        scenes.fightGoblinResult.text += `You missed the goblin!`;
+                        scenes.fightGoblinResult.text = result + "You missed the goblin!";
                         scenes.fightGoblinResult.choices[0].nextScene = "goblinCounter";
                     }
+                    showDiceResult(result);
                 }
             },
             defeatGoblin: {
@@ -236,14 +249,17 @@
                 ]
             },
             goblinDamageResult: {
-                text: "The goblin's attack hits you. You rolled: ",
+                text: "The goblin's attack hits you.",
                 choices: [
                     { text: "Continue fighting", nextScene: "fightGoblin" }
                 ],
                 effect: () => {
                     const damage = rollDice(1, 6);
-                    playerHealth -= damage;
-                    scenes.goblinDamageResult.text += `${damage}. You took ${damage} damage.`;
+                    gameState.playerHealth = Math.max(gameState.playerHealth - damage, 0);
+                    const result = `You rolled: ${damage}. You took ${damage} damage.`;
+                    scenes.goblinDamageResult.text += ` ${result}`;
+                    showDiceResult(result);
+                    checkGameOver();
                 }
             },
             sneakPast: {
@@ -253,21 +269,22 @@
                 ]
             },
             sneakPastResult: {
-                text: "You try to sneak past the goblin. You rolled: ",
+                text: "You try to sneak past the goblin.",
                 choices: [
                     { text: "Continue", nextScene: "successfulSneak" }
                 ],
                 effect: () => {
                     const roll = rollDice(1, 20);
-                    const total = roll + Math.floor((playerDexterity - 10) / 2);
-                    scenes.sneakPastResult.text += `${roll}. Adding your Dexterity modifier, your total is ${total}. `;
+                    const total = roll + Math.floor((gameState.playerDexterity - 10) / 2);
+                    const result = `You rolled: ${roll}. Adding your Dexterity modifier, your total is ${total}. `;
                     if (total >= 15) {
-                        scenes.sneakPastResult.text += `You successfully sneak past!`;
+                        scenes.sneakPastResult.text = result + "You successfully sneak past!";
                         scenes.sneakPastResult.choices[0].nextScene = "successfulSneak";
                     } else {
-                        scenes.sneakPastResult.text += `The goblin spots you!`;
+                        scenes.sneakPastResult.text = result + "The goblin spots you!";
                         scenes.sneakPastResult.choices[0].nextScene = "failedSneak";
                     }
+                    showDiceResult(result);
                 }
             },
             successfulSneak: {
@@ -281,6 +298,15 @@
                 choices: [
                     { text: "Fight the goblin", nextScene: "fightGoblin" }
                 ]
+            },
+            gameOver: {
+                text: "Game Over! Your health has reached 0.",
+                choices: [
+                    { text: "Restart the game", nextScene: "start" }
+                ],
+                effect: () => {
+                    resetGameState();
+                }
             }
         };
 
@@ -309,13 +335,44 @@
                     choicesDiv.appendChild(button);
                 });
 
-                document.getElementById('character-info').innerText = `Health: ${playerHealth} | Gold: ${playerGold} | Strength: ${playerStrength} | Dexterity: ${playerDexterity}`;
+                updateCharacterInfo();
                 
-                currentScene = scene;
+                gameState.currentScene = scene;
             } catch (error) {
                 console.error("Error updating game:", error);
                 document.getElementById('story-text').innerText = "An error occurred. Please restart the game.";
             }
+        }
+
+        // Function to update character information
+        function updateCharacterInfo() {
+            const infoText = `Health: ${gameState.playerHealth} | Gold: ${gameState.playerGold} | Strength: ${gameState.playerStrength} | Dexterity: ${gameState.playerDexterity}`;
+            const inventoryText = gameState.inventory.length > 0 ? ` | Inventory: ${gameState.inventory.join(", ")}` : "";
+            document.getElementById('character-info').innerText = infoText + inventoryText;
+        }
+
+        // Function to show dice roll results
+        function showDiceResult(result) {
+            document.getElementById('dice-result').innerText = result;
+        }
+
+        // Function to check if the game is over
+        function checkGameOver() {
+            if (gameState.playerHealth <= 0) {
+                updateGame('gameOver');
+            }
+        }
+
+        // Function to reset the game state
+        function resetGameState() {
+            gameState.playerHealth = 100;
+            gameState.playerGold = 0;
+            gameState.currentScene = 'start';
+            gameState.playerStrength = 10;
+            gameState.playerDexterity = 10;
+            gameState.inventory = [];
+            updateCharacterInfo();
+            document.getElementById('dice-result').innerText = '';
         }
 
         // Initialize the game
